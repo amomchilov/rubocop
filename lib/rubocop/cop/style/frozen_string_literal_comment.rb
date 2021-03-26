@@ -10,8 +10,7 @@ module RuboCop
       # default in future Ruby. The comment will be added below a shebang and
       # encoding comment.
       #
-      # Note that the cop will ignore files where the comment exists but is set
-      # to `false` instead of `true`.
+      # To enforce a blank line after this,
       #
       # @example EnforcedStyle: always (default)
       #   # The `always` style will always add the frozen string literal comment
