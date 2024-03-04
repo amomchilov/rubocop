@@ -24,24 +24,6 @@ module RuboCop
       @lockfile_path = lockfile_path
     end
 
-    # Gems that the bundle directly depends on.
-    # @return [Array<Bundler::Dependency>, nil]
-    def dependencies
-      return [] unless parser
-
-      parser.dependencies.values
-    end
-
-    # All activated gems, including transitive dependencies.
-    # @return [Array<Bundler::Dependency>, nil]
-    def gems
-      return [] unless parser
-
-      # `Bundler::LockfileParser` returns `Bundler::LazySpecification` objects
-      # which are not resolved, so extract the dependencies from them
-      parser.dependencies.values.concat(parser.specs.flat_map(&:dependencies))
-    end
-
     # Returns the locked versions of gems from this lockfile.
     # @param [Boolean] include_transitive_dependencies: When false, only direct dependencies
     #   are returned, i.e. those listed explicitly in the `Gemfile`.
@@ -49,24 +31,25 @@ module RuboCop
     def gem_versions(include_transitive_dependencies: true)
       return {} unless parser
 
-      all_gem_versions = parser.specs.to_h { |spec| [spec.name, spec.version] }
-
       if include_transitive_dependencies
-        all_gem_versions
+        gem_version_including_transitive
       else
-        direct_dep_names = parser.dependencies.keys
-        all_gem_versions.slice(*direct_dep_names)
+        gem_version_excluding_transitive
       end
     end
 
-    # Whether this lockfile includes the named gem, directly or indirectly.
-    # @param [String] name
-    # @return [Boolean]
-    def includes_gem?(name)
-      gems.any? { |gem| gem.name == name }
+    private
+
+    def gem_version_including_transitive
+      @gem_version_including_transitive ||= parser.specs.to_h { |spec| [spec.name, spec.version] }
     end
 
-    private
+    def gem_version_excluding_transitive
+      @gem_version_excluding_transitive ||= begin
+        direct_dep_names = parser.dependencies.keys
+        gem_version_including_transitive.slice(*direct_dep_names)
+      end
+    end
 
     # @return [Bundler::LockfileParser, nil]
     def parser

@@ -71,17 +71,20 @@ module RuboCop
         end
 
         def all_extensions
-          return [] unless lockfile.dependencies.any?
+          return [] unless installed_gems.any?
 
-          extensions = @config_store.for_pwd.for_all_cops['SuggestExtensions']
-          case extensions
-          when true
-            extensions = ConfigLoader.default_configuration.for_all_cops['SuggestExtensions']
-          when false, nil
-            extensions = {}
+          should_suggest_extensions = @config_store.for_pwd.for_all_cops['SuggestExtensions']
+
+          suggested_extensions = case should_suggest_extensions
+                                 when true
+                                   ConfigLoader.default_configuration.for_all_cops['SuggestExtensions']
+                                 when false, nil
+                                   {}
+                                 end
+
+          suggested_extensions.filter_map do |suggested_extension, relevant_gems|
+            Array(relevant_gems).intersect?(dependent_gems) ? suggested_extension : nil
           end
-
-          extensions.select { |_, v| (Array(v) & dependent_gems).any? }.keys
         end
 
         def extensions
@@ -109,11 +112,11 @@ module RuboCop
         end
 
         def dependent_gems
-          lockfile.dependencies.map(&:name)
+          @dependent_gems ||= lockfile.gem_versions(include_transitive_dependencies: false).keys
         end
 
         def installed_gems
-          lockfile.gems.map(&:name)
+          @installed_gems ||= lockfile.gem_versions(include_transitive_dependencies: true).keys
         end
 
         def puts(*args)
